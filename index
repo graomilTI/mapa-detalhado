@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mapa Operacional – GPS / Cargas (Leaflet)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- MarkerCluster (opcional) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  <style>
+    :root{
+      --bg:#f5f6f7; --card:#fff; --txt:#0f172a; --muted:#6b7280;
+      --border:#e5e7eb; --ok:#16a34a; --alert:#dc2626; --shadow:0 10px 30px rgba(0,0,0,.08);
+      --radius:14px;
+    }
+    html,body{height:100%;}
+    body{ margin:0; font-family:Arial, Helvetica, sans-serif; background:var(--bg); color:var(--txt); }
+
+    .topbar{
+      position:sticky; top:0; z-index:20;
+      background:rgba(255,255,255,.92); backdrop-filter: blur(8px);
+      border-bottom:1px solid var(--border);
+      padding:10px 12px;
+    }
+    .row{
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+      max-width:1400px; margin:0 auto;
+    }
+    .card{
+      background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+      box-shadow:0 2px 10px rgba(0,0,0,.06);
+      padding:10px 12px;
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    }
+    label{ font-size:13px; color:var(--muted); display:flex; align-items:center; gap:6px; }
+    input[type="text"]{
+      padding:8px 10px; border:1px solid var(--border); border-radius:10px; outline:none;
+      background:#fff; font-size:14px; min-width:120px;
+    }
+    select{
+      padding:8px 10px; border:1px solid var(--border); border-radius:10px; outline:none;
+      background:#fff; font-size:14px;
+    }
+    button{
+      padding:9px 12px; border:0; border-radius:10px; background:#2563eb; color:#fff;
+      cursor:pointer; font-weight:700;
+    }
+    button:disabled{opacity:.55; cursor:not-allowed;}
+    .pill{
+      font-size:12px; padding:6px 10px; border-radius:999px; background:#f1f5f9; color:#0f172a;
+      border:1px solid var(--border);
+    }
+    .pill.ok{ background:#eaf7ee; color:#0f5d1a; border-color:#c8f0d3;}
+    .pill.alert{ background:#fdecec; color:#7f1d1d; border-color:#f7c9c9;}
+    .hint{ font-size:12px; color:var(--muted); }
+    #map{ height: calc(100vh - 74px); width:100%; }
+    .legend{
+      position:absolute; right:14px; bottom:14px; z-index:30;
+      background:rgba(255,255,255,.92); border:1px solid var(--border);
+      border-radius:14px; padding:10px 12px; box-shadow:var(--shadow);
+      min-width:220px;
+    }
+    .legend h4{ margin:0 0 8px; font-size:13px; }
+    .lg{
+      display:flex; align-items:center; gap:10px; font-size:12px; color:var(--txt); margin:6px 0;
+    }
+    .dot{ width:10px; height:10px; border-radius:999px; display:inline-block; }
+    .dot.ok{ background:var(--ok); }
+    .dot.alert{ background:var(--alert); }
+    .dot.hotel{ background:#2563eb; }
+    .dot.emb{ background:#7c3aed; }
+    .dot.casa{ background:#0ea5e9; }
+    .dot.parado{ background:#f59e0b; }
+    .toast{
+      position:fixed; left:50%; transform:translateX(-50%);
+      bottom:18px; z-index:40;
+      background:rgba(15,23,42,.92); color:#fff; padding:10px 12px;
+      border-radius:12px; box-shadow:var(--shadow); font-size:13px; display:none;
+      max-width:min(92vw,720px);
+    }
+    .toast.show{ display:block; }
+    .chkline{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .chk{
+      display:flex; align-items:center; gap:6px;
+      padding:6px 10px; border:1px solid var(--border); border-radius:999px;
+      background:#fff;
+      font-size:13px;
+    }
+    .chk input{ transform: translateY(1px); }
+    .counts{ font-size:12px; color:var(--muted); }
+
+    .sec-title{ margin-top:8px; font-weight:700; }
+    .kv{ margin-top:4px; }
+    .kv b{ color:#111827; }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="row">
+      <div class="card">
+        <label>🗓️ Data <input id="inpData" type="text" placeholder="dd/MM/aaaa" /></label>
+
+        <label>🚚 Cargas
+          <select id="selCargas">
+            <option value="">TODAS</option>
+            <option value="OK">OK</option>
+            <option value="ALERTA">ALERTA</option>
+          </select>
+        </label>
+
+        <label>🚗 Veículos
+          <select id="selVeiculos">
+            <option value="">TODOS</option>
+            <option value="OK">OK</option>
+            <option value="ALERTA">ALERTA</option>
+          </select>
+        </label>
+
+        <div class="chkline" style="margin-left:6px;">
+          <div class="chk"><input id="chkHoteis" type="checkbox" checked><span>Hotéis</span></div>
+          <div class="chk"><input id="chkEmbarques" type="checkbox" checked><span>Embarques</span></div>
+          <div class="chk"><input id="chkCasas" type="checkbox"><span>Casas</span></div>
+          <div class="chk"><input id="chkVeiculos" type="checkbox" checked><span>Veículos</span></div>
+          <div class="chk"><input id="chkCargas" type="checkbox" checked><span>Cargas</span></div>
+        </div>
+
+        <button id="btnAtualizar">Atualizar</button>
+        <span id="pillStatus" class="pill">Pronto</span>
+        <span class="hint">Dica: se não filtrar data, mostra tudo do dia na base.</span>
+      </div>
+
+      <div class="card">
+        <div class="counts" id="counts">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="legend">
+    <h4>Legenda</h4>
+    <div class="lg"><span class="dot casa"></span> Casa</div>
+    <div class="lg"><span class="dot hotel"></span> Hotel</div>
+    <div class="lg"><span class="dot emb"></span> Ponto de Embarque</div>
+    <div class="lg"><span class="dot parado"></span> Veículo parado (pin)</div>
+    <hr style="border:0;border-top:1px solid var(--border); margin:10px 0;">
+    <div class="lg"><span class="dot ok"></span> Status OK (carga/veículo)</div>
+    <div class="lg"><span class="dot alert"></span> Status ALERTA (carga/veículo)</div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+<script>
+  // =========================
+  // API (Cloudflare Worker)
+  // =========================
+  // Se estiver servindo o HTML pelo MESMO domínio do Worker, pode ficar "/api".
+  // Se for cross-domain, use "https://gps.seudominio.com/api"
+  const API = "/api";
+
+  async function apiGet(path) {
+    const r = await fetch(API + path, { method: "GET" });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  async function apiPost(path, payload) {
+    const r = await fetch(API + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {})
+    });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  // ====== UTIL ======
+  const $ = (id) => document.getElementById(id);
+
+  function escapeHtml(s){
+    s = String(s ?? "");
+    return s.replace(/[&<>"']/g, (m)=>({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+    }[m]));
+  }
+
+  function toast(msg, kind){
+    const t = $("toast");
+    t.textContent = msg || "";
+    t.classList.add("show");
+    if(kind === "ok") t.style.background = "rgba(22,163,74,.92)";
+    else if(kind === "alert") t.style.background = "rgba(220,38,38,.92)";
+    else t.style.background = "rgba(15,23,42,.92)";
+    setTimeout(()=>t.classList.remove("show"), 3500);
+  }
+
+  function setPill(text, mode){
+    const p = $("pillStatus");
+    p.textContent = text || "";
+    p.classList.remove("ok","alert");
+    if(mode === "ok") p.classList.add("ok");
+    if(mode === "alert") p.classList.add("alert");
+  }
+
+  function safeNum(v){
+    const n = Number(v);
+    return Number.isFinite(n) ? n : NaN;
+  }
+  function km(v){
+    const n = Number(v);
+    if (!Number.isFinite(n)) return "";
+    return (n).toFixed(2);
+  }
+  function asListLaudos(v){
+    if (Array.isArray(v)) return v.filter(Boolean).join(", ");
+    return String(v||"").trim();
+  }
+
+  // ====== MAPA ======
+  const map = L.map('map', { zoomControl:true }).setView([-14.2350, -51.9253], 4); // Brasil
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
+
+  const layerCargas    = L.layerGroup().addTo(map);
+  const layerVeiculos  = L.layerGroup().addTo(map);
+  const layerHoteis    = L.layerGroup().addTo(map);
+  const layerEmbarques = L.layerGroup().addTo(map);
+  const layerCasas     = L.layerGroup().addTo(map);
+
+  const state = { hoteis:[], embarques:[], casas:[], veiculos:[], cargas:[] };
+
+  // não resetar zoom depois que o usuário mexer
+  let autoFitEnabled = true;
+  map.on("dragstart zoomstart movestart", ()=>{ autoFitEnabled = false; });
+
+  function iconDot(color, label){
+    return L.divIcon({
+      className: '',
+      html: `<div style="
+        width:12px;height:12px;border-radius:999px;background:${color};
+        border:2px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,.25);
+      " title="${label||''}"></div>`,
+      iconSize:[12,12],
+      iconAnchor:[6,6]
+    });
+  }
+
+  function iconPin(color){
+    const svg = `
+      <svg width="26" height="38" viewBox="0 0 26 38" xmlns="http://www.w3.org/2000/svg">
+        <path d="M13 37c0 0 11-13.6 11-23A11 11 0 0 0 2 14c0 9.4 11 23 11 23z" fill="${color}" stroke="#ffffff" stroke-width="2"/>
+        <circle cx="13" cy="14" r="4.5" fill="#ffffff"/>
+      </svg>`;
+    return L.divIcon({ className:'', html: svg, iconSize:[26,38], iconAnchor:[13,37] });
+  }
+
+  function addMarkersHoteis(items){
+    layerHoteis.clearLayers();
+    const ic = iconDot("#2563eb", "Hotel");
+    items.forEach(x=>{
+      const lat = safeNum(x.lat), lng = safeNum(x.lng);
+      if(!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      L.marker([lat,lng], { icon: ic })
+        .bindPopup(`<b>Hotel</b><br>${escapeHtml(x.nome||'')}`)
+        .addTo(layerHoteis);
+    });
+  }
+
+  function addMarkersEmbarques(items){
+    layerEmbarques.clearLayers();
+    const ic = iconDot("#7c3aed", "Embarque");
+    items.forEach(x=>{
+      const lat = safeNum(x.lat), lng = safeNum(x.lng);
+      if(!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      const sub = [x.cidade ? escapeHtml(x.cidade) : "", x.uf ? escapeHtml(x.uf) : ""]
+        .filter(Boolean).join(" - ");
+      L.marker([lat,lng], { icon: ic })
+        .bindPopup(`<b>Ponto de Embarque</b><br>${escapeHtml(x.nome||'')}<br><span style="color:#6b7280">${sub}</span>`)
+        .addTo(layerEmbarques);
+    });
+  }
+
+  function addMarkersCasas(items){
+    layerCasas.clearLayers();
+    const ic = iconDot("#0ea5e9", "Casa");
+    items.forEach(x=>{
+      const lat = safeNum(x.lat), lng = safeNum(x.lng);
+      if(!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      const nome = x.nome || x.cpf || "Casa";
+      L.marker([lat,lng], { icon: ic })
+        .bindPopup(`<b>Casa</b><br>${escapeHtml(nome)}`)
+        .addTo(layerCasas);
+    });
+  }
+
+  // VEÍCULOS: usa campos do seu backend:
+  // parado_horas, dt_prev, dt_now
+  function addMarkersVeiculos(items){
+    layerVeiculos.clearLayers();
+    items.forEach(x=>{
+      const lat = safeNum(x.lat), lng = safeNum(x.lng);
+      if(!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+      const status = String(x.status||"").toUpperCase();
+      const color = (status==="ALERTA") ? "#dc2626" : "#16a34a";
+      const ic = iconPin(color);
+
+      const html = `
+        <div>
+          <div><b>Veículo parado (${escapeHtml(status)})</b></div>
+
+          <div class="kv"><b>Veículo:</b> ${escapeHtml(x.veiculo||"")}</div>
+          <div class="kv"><b>Motorista:</b> ${escapeHtml(x.motorista||"")}</div>
+          <div class="kv"><b>Parado:</b> ${escapeHtml(km(Number(x.parado_horas||0)))} h</div>
+
+          <div class="kv"><b>Ref:</b> ${escapeHtml(x.ref_tipo||"")} - ${escapeHtml(x.ref_nome||"")}</div>
+          <div class="kv"><b>Dist:</b> ${escapeHtml(km(Number(x.dist_km||0)))} km</div>
+
+          <div class="sec-title">Hora:</div>
+          <div class="kv">${escapeHtml(x.dt_prev||"")} → ${escapeHtml(x.dt_now||"")}</div>
+        </div>
+      `;
+
+      L.marker([lat,lng], { icon: ic })
+        .bindPopup(html)
+        .addTo(layerVeiculos);
+    });
+  }
+
+  function addMarkersCargas(items){
+    layerCargas.clearLayers();
+    items.forEach(x=>{
+      const lat = safeNum(x.lat), lng = safeNum(x.lng);
+      if(!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+      const status = String(x.status||"").toUpperCase();
+      const color = (status==="ALERTA") ? "#dc2626" : "#16a34a";
+      const ic = iconDot(color, "Carga");
+
+      const laudos = asListLaudos(x.laudos);
+
+      const html = `
+        <div>
+          <div><b>Carga (${escapeHtml(status)})</b></div>
+
+          <div class="kv"><b>Classificador:</b> ${escapeHtml(x.classificador||"")}</div>
+          <div class="kv"><b>Tons:</b> ${escapeHtml(km(Number(x.tons||0)))}</div>
+          <div class="kv"><b>Laudos:</b> ${escapeHtml(laudos || "-")}</div>
+          <div class="kv"><b>Embarque:</b> ${escapeHtml(x.embarque||"")}</div>
+
+          <div class="sec-title">Distâncias:</div>
+          <div class="kv">
+            <b>Embarque:</b> ${escapeHtml(km(Number(x.dist_embarque_km||0)))} km
+            &nbsp;–&nbsp; <b>Casa:</b> ${escapeHtml(km(Number(x.dist_casa_km||0)))} km
+            &nbsp;–&nbsp; <b>Hotel:</b> ${escapeHtml(km(Number(x.dist_hotel_km||0)))} km
+          </div>
+
+          <div class="sec-title">Hora:</div>
+          <div class="kv">${escapeHtml(x.hora||"")}</div>
+        </div>
+      `;
+
+      L.marker([lat,lng], { icon: ic })
+        .bindPopup(html)
+        .addTo(layerCargas);
+    });
+  }
+
+  function toggleLayer(layer, on){
+    const has = map.hasLayer(layer);
+    if(on && !has) map.addLayer(layer);
+    if(!on && has) map.removeLayer(layer);
+  }
+
+  function applyLayerVisibility(){
+    toggleLayer(layerHoteis,    $("chkHoteis").checked);
+    toggleLayer(layerEmbarques, $("chkEmbarques").checked);
+    toggleLayer(layerCasas,     $("chkCasas").checked);
+    toggleLayer(layerVeiculos,  $("chkVeiculos").checked);
+    toggleLayer(layerCargas,    $("chkCargas").checked);
+  }
+
+  function fitToVisible(){
+    const layers = [];
+    if($("chkHoteis").checked) layers.push(layerHoteis);
+    if($("chkEmbarques").checked) layers.push(layerEmbarques);
+    if($("chkCasas").checked) layers.push(layerCasas);
+    if($("chkVeiculos").checked) layers.push(layerVeiculos);
+    if($("chkCargas").checked) layers.push(layerCargas);
+
+    const bounds = L.latLngBounds();
+    let any = false;
+    layers.forEach(l=>{
+      l.eachLayer(m=>{
+        if(m.getLatLng){
+          bounds.extend(m.getLatLng());
+          any = true;
+        }
+      });
+    });
+    if(any) map.fitBounds(bounds.pad(0.15));
+  }
+
+  function buildFiltro(){
+    return {
+      data: $("inpData").value.trim(),
+      statusCargas: $("selCargas").value,
+      statusVeiculos: $("selVeiculos").value
+    };
+  }
+
+  function setCounts(){
+    const c = `Hotéis: ${state.hoteis.length} | Embarques: ${state.embarques.length} | Casas: ${state.casas.length} | Veículos: ${state.veiculos.length} | Cargas: ${state.cargas.length}`;
+    $("counts").textContent = c;
+  }
+
+  async function atualizar(){
+    setPill("Carregando…");
+    $("btnAtualizar").disabled = true;
+
+    const filtro = buildFiltro();
+
+    try{
+      const [h,e,c,v,ca] = await Promise.all([
+        apiGet("/hoteis"),
+        apiGet("/pontos_embarque"),
+        apiGet("/casas"),
+        apiPost("/veiculos_parados", filtro),
+        apiPost("/cargas_agrupadas", filtro),
+      ]);
+
+      state.hoteis = Array.isArray(h)?h:[];
+      state.embarques = Array.isArray(e)?e:[];
+      state.casas = Array.isArray(c)?c:[];
+      state.veiculos = Array.isArray(v)?v:[];
+      state.cargas = Array.isArray(ca)?ca:[];
+
+      addMarkersHoteis(state.hoteis);
+      addMarkersEmbarques(state.embarques);
+      addMarkersCasas(state.casas);
+      addMarkersVeiculos(state.veiculos);
+      addMarkersCargas(state.cargas);
+
+      applyLayerVisibility();
+      setCounts();
+
+      setPill("OK", "ok");
+      toast("Mapa atualizado.", "ok");
+      $("btnAtualizar").disabled = false;
+
+      if (autoFitEnabled) fitToVisible();
+    }catch(err){
+      console.error(err);
+      setPill("Erro", "alert");
+      toast("Erro ao carregar dados. Veja o console.", "alert");
+      $("btnAtualizar").disabled = false;
+    }
+  }
+
+  $("btnAtualizar").addEventListener("click", atualizar);
+
+  ["chkHoteis","chkEmbarques","chkCasas","chkVeiculos","chkCargas"].forEach(id=>{
+    $(id).addEventListener("change", ()=>{
+      applyLayerVisibility();
+    });
+  });
+
+  applyLayerVisibility();
+  atualizar();
+</script>
+</body>
+</html>
