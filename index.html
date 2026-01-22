@@ -161,17 +161,21 @@
   <div id="toast" class="toast"></div>
 
 <script>
-  // ============================================
-  // API BASE (Worker)
-  // ============================================
-  const API_BASE = "https://irregularidadesmapa.tecnologia-f0c.workers.dev/api";
+  // =========================
+  // API (Cloudflare Worker)
+  // =========================
+  // ✅ No GitHub Pages, "/api" NÃO existe.
+  // Então: se estiver em *.github.io -> usa o Worker.
+  const WORKER_BASE = "https://irregularidadesmapa.tecnologia-f0c.workers.dev";
+  const API_BASE = (location.hostname.includes("github.io"))
+    ? (WORKER_BASE + "/api")
+    : "/api"; // se algum dia você servir o HTML pelo próprio worker/domínio
 
   async function apiGet(path) {
     const r = await fetch(API_BASE + path, { method: "GET" });
-    const txt = await r.text();
-    if (!r.ok) throw new Error(txt || ("HTTP " + r.status));
-    const json = JSON.parse(txt || "{}");
-    return (json && json.ok) ? json.data : json;
+    const text = await r.text();
+    if (!r.ok) throw new Error(text || ("HTTP " + r.status));
+    try { return JSON.parse(text); } catch(_) { throw new Error("Resposta não-JSON: " + text.slice(0,200)); }
   }
 
   async function apiPost(path, payload) {
@@ -180,10 +184,9 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload || {})
     });
-    const txt = await r.text();
-    if (!r.ok) throw new Error(txt || ("HTTP " + r.status));
-    const json = JSON.parse(txt || "{}");
-    return (json && json.ok) ? json.data : json;
+    const text = await r.text();
+    if (!r.ok) throw new Error(text || ("HTTP " + r.status));
+    try { return JSON.parse(text); } catch(_) { throw new Error("Resposta não-JSON: " + text.slice(0,200)); }
   }
 
   // ====== UTIL ======
@@ -223,14 +226,17 @@
     if (!Number.isFinite(n)) return "";
     return (n).toFixed(2);
   }
-
-  // Laudos: agora é contagem
-  function laudosCount(v){
+  function asListLaudos(v){
+    if (Array.isArray(v)) return v.filter(Boolean).join(", ");
+    return String(v||"").trim();
+  }
+  function countLaudos(v){
+    // ✅ aceita array, string "A, B, C" ou número vindo do backend
+    if (typeof v === "number" && Number.isFinite(v)) return v;
     if (Array.isArray(v)) return v.filter(Boolean).length;
     const s = String(v||"").trim();
     if (!s) return 0;
-    // separa por vírgula
-    return s.split(",").map(x=>x.trim()).filter(Boolean).length || 1;
+    return s.split(",").map(x=>x.trim()).filter(Boolean).length;
   }
 
   // ====== MAPA ======
@@ -312,6 +318,7 @@
     });
   }
 
+  // VEÍCULOS
   function addMarkersVeiculos(items){
     layerVeiculos.clearLayers();
     items.forEach(x=>{
@@ -325,20 +332,26 @@
       const html = `
         <div>
           <div><b>Veículo parado (${escapeHtml(status)})</b></div>
+
           <div class="kv"><b>Veículo:</b> ${escapeHtml(x.veiculo||"")}</div>
           <div class="kv"><b>Motorista:</b> ${escapeHtml(x.motorista||"")}</div>
           <div class="kv"><b>Parado:</b> ${escapeHtml(km(Number(x.parado_horas||0)))} h</div>
+
           <div class="kv"><b>Ref:</b> ${escapeHtml(x.ref_tipo||"")} - ${escapeHtml(x.ref_nome||"")}</div>
           <div class="kv"><b>Dist:</b> ${escapeHtml(km(Number(x.dist_km||0)))} km</div>
+
           <div class="sec-title">Hora:</div>
           <div class="kv">${escapeHtml(x.dt_prev||"")} → ${escapeHtml(x.dt_now||"")}</div>
         </div>
       `;
 
-      L.marker([lat,lng], { icon: ic }).bindPopup(html).addTo(layerVeiculos);
+      L.marker([lat,lng], { icon: ic })
+        .bindPopup(html)
+        .addTo(layerVeiculos);
     });
   }
 
+  // CARGAS
   function addMarkersCargas(items){
     layerCargas.clearLayers();
     items.forEach(x=>{
@@ -349,14 +362,16 @@
       const color = (status==="ALERTA") ? "#dc2626" : "#16a34a";
       const ic = iconDot(color, "Carga");
 
-      const qtdLaudos = laudosCount(x.laudos);
+      // ✅ em vez de mostrar texto, mostrar CONTAGEM
+      const laudosCount = (x.qtd_laudos != null) ? Number(x.qtd_laudos) : countLaudos(x.laudos);
 
       const html = `
         <div>
           <div><b>Carga (${escapeHtml(status)})</b></div>
+
           <div class="kv"><b>Classificador:</b> ${escapeHtml(x.classificador||"")}</div>
           <div class="kv"><b>Tons:</b> ${escapeHtml(km(Number(x.tons||0)))}</div>
-          <div class="kv"><b>Laudos:</b> ${escapeHtml(String(qtdLaudos))}</div>
+          <div class="kv"><b>Laudos:</b> ${escapeHtml(String(laudosCount))}</div>
           <div class="kv"><b>Embarque:</b> ${escapeHtml(x.embarque||"")}</div>
 
           <div class="sec-title">Distâncias:</div>
@@ -371,7 +386,9 @@
         </div>
       `;
 
-      L.marker([lat,lng], { icon: ic }).bindPopup(html).addTo(layerCargas);
+      L.marker([lat,lng], { icon: ic })
+        .bindPopup(html)
+        .addTo(layerCargas);
     });
   }
 
@@ -438,11 +455,14 @@
         apiPost("/cargas_agrupadas", filtro),
       ]);
 
-      state.hoteis = Array.isArray(h)?h:[];
-      state.embarques = Array.isArray(e)?e:[];
-      state.casas = Array.isArray(c)?c:[];
-      state.veiculos = Array.isArray(v)?v:[];
-      state.cargas = Array.isArray(ca)?ca:[];
+      // seu GAS retorna {ok:true, data:...}
+      const unwrap = (x) => (x && typeof x === "object" && "data" in x) ? x.data : x;
+
+      state.hoteis = Array.isArray(unwrap(h)) ? unwrap(h) : [];
+      state.embarques = Array.isArray(unwrap(e)) ? unwrap(e) : [];
+      state.casas = Array.isArray(unwrap(c)) ? unwrap(c) : [];
+      state.veiculos = Array.isArray(unwrap(v)) ? unwrap(v) : [];
+      state.cargas = Array.isArray(unwrap(ca)) ? unwrap(ca) : [];
 
       addMarkersHoteis(state.hoteis);
       addMarkersEmbarques(state.embarques);
