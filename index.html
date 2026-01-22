@@ -2,500 +2,675 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Mapa Operacional – GPS / Cargas (Leaflet)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Mapa Operacional – GPS / Cargas</title>
 
   <!-- Leaflet -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- MarkerCluster (opcional) -->
+  <!-- MarkerCluster (opcional, mas ajuda MUITO em cargas) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
   <style>
     :root{
-      --bg:#f5f6f7; --card:#fff; --txt:#0f172a; --muted:#6b7280;
-      --border:#e5e7eb; --ok:#16a34a; --alert:#dc2626; --shadow:0 10px 30px rgba(0,0,0,.08);
+      --bg:#f5f6f7;
+      --card:#ffffff;
+      --border:#e6e8eb;
+      --text:#1f2937;
+      --muted:#6b7280;
       --radius:14px;
+      --shadow:0 8px 22px rgba(0,0,0,.08);
+      --shadow2:0 1px 3px rgba(0,0,0,.08);
+      --blue:#2563eb;
+      --green:#16a34a;
+      --red:#ef4444;
+      --orange:#f59e0b;
+      --teal:#14b8a6;
+      --purple:#8b5cf6;
     }
-    html,body{height:100%;}
-    body{ margin:0; font-family:Arial, Helvetica, sans-serif; background:var(--bg); color:var(--txt); }
 
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: Arial, sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      overflow:hidden;
+    }
+
+    /* Topbar */
     .topbar{
-      position:sticky; top:0; z-index:20;
-      background:rgba(255,255,255,.92); backdrop-filter: blur(8px);
-      border-bottom:1px solid var(--border);
-      padding:10px 12px;
+      position: sticky;
+      top: 0;
+      z-index: 2000;
+      background: var(--bg);
+      padding: 10px 10px 8px;
+      border-bottom: 1px solid var(--border);
     }
-    .row{
-      display:flex; flex-wrap:wrap; gap:10px; align-items:center;
-      max-width:1400px; margin:0 auto;
-    }
-    .card{
-      background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
-      box-shadow:0 2px 10px rgba(0,0,0,.06);
-      padding:10px 12px;
-      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-    }
-    label{ font-size:13px; color:var(--muted); display:flex; align-items:center; gap:6px; }
-    input[type="text"]{
-      padding:8px 10px; border:1px solid var(--border); border-radius:10px; outline:none;
-      background:#fff; font-size:14px; min-width:120px;
-    }
-    select{
-      padding:8px 10px; border:1px solid var(--border); border-radius:10px; outline:none;
-      background:#fff; font-size:14px;
-    }
-    button{
-      padding:9px 12px; border:0; border-radius:10px; background:#2563eb; color:#fff;
-      cursor:pointer; font-weight:700;
-    }
-    button:disabled{opacity:.55; cursor:not-allowed;}
-    .pill{
-      font-size:12px; padding:6px 10px; border-radius:999px; background:#f1f5f9; color:#0f172a;
+    .controls{
+      background:var(--card);
       border:1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow2);
+      padding: 10px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap: wrap;
     }
-    .pill.ok{ background:#eaf7ee; color:#0f5d1a; border-color:#c8f0d3;}
-    .pill.alert{ background:#fdecec; color:#7f1d1d; border-color:#f7c9c9;}
-    .hint{ font-size:12px; color:var(--muted); }
-    #map{ height: calc(100vh - 74px); width:100%; }
-    .legend{
-      position:absolute; right:14px; bottom:14px; z-index:30;
-      background:rgba(255,255,255,.92); border:1px solid var(--border);
-      border-radius:14px; padding:10px 12px; box-shadow:var(--shadow);
-      min-width:220px;
+    .group{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding: 4px 6px;
+      border-radius: 12px;
     }
-    .legend h4{ margin:0 0 8px; font-size:13px; }
-    .lg{
-      display:flex; align-items:center; gap:10px; font-size:12px; color:var(--txt); margin:6px 0;
+    .label{
+      color:var(--muted);
+      font-size: 12px;
+      white-space:nowrap;
+      display:flex;
+      align-items:center;
+      gap:6px;
     }
-    .dot{ width:10px; height:10px; border-radius:999px; display:inline-block; }
-    .dot.ok{ background:var(--ok); }
-    .dot.alert{ background:var(--alert); }
-    .dot.hotel{ background:#2563eb; }
-    .dot.emb{ background:#7c3aed; }
-    .dot.casa{ background:#0ea5e9; }
-    .dot.parado{ background:#f59e0b; }
-    .toast{
-      position:fixed; left:50%; transform:translateX(-50%);
-      bottom:18px; z-index:40;
-      background:rgba(15,23,42,.92); color:#fff; padding:10px 12px;
-      border-radius:12px; box-shadow:var(--shadow); font-size:13px; display:none;
-      max-width:min(92vw,720px);
-    }
-    .toast.show{ display:block; }
-    .chkline{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-    .chk{
-      display:flex; align-items:center; gap:6px;
-      padding:6px 10px; border:1px solid var(--border); border-radius:999px;
+    input[type="date"], select{
+      border:1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px 10px;
       background:#fff;
-      font-size:13px;
+      outline:none;
+      font-size: 13px;
+      height: 36px;
     }
-    .chk input{ transform: translateY(1px); }
-    .counts{ font-size:12px; color:var(--muted); }
+    .btn{
+      border:none;
+      border-radius: 12px;
+      padding: 9px 14px;
+      height: 36px;
+      cursor:pointer;
+      font-weight: 700;
+      background: var(--blue);
+      color:#fff;
+    }
+    .pill{
+      border:1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background:#fff;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .okpill{ color: var(--green); font-weight:700; }
+    .badpill{ color: var(--red); font-weight:700; }
+    .warnpill{ color: var(--orange); font-weight:700; }
 
-    .sec-title{ margin-top:8px; font-weight:700; }
-    .kv{ margin-top:4px; }
-    .kv b{ color:#111827; }
+    .toggles{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap: wrap;
+      margin-left: 6px;
+    }
+    .toggle{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      font-size: 13px;
+      color: var(--text);
+      user-select:none;
+    }
+
+    /* Map area */
+    #mapWrap{
+      position: relative;
+      height: calc(100vh - 78px);
+      width: 100vw;
+    }
+    #map{
+      height:100%;
+      width:100%;
+    }
+
+    /* Legenda flutuante */
+    #legend-container{
+      position:absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1500;
+      background: rgba(255,255,255,0.96);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      box-shadow: var(--shadow);
+      width: 220px;
+      max-width: calc(100vw - 20px);
+      font-size: 12px;
+    }
+    .legend-title{
+      font-weight: 800;
+      margin-bottom: 8px;
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap:8px;
+    }
+    .legend-row{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin: 6px 0;
+      color: var(--text);
+    }
+    .dot{
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display:inline-block;
+      border: 1px solid rgba(0,0,0,.15);
+    }
+    .dot.casa{ background: var(--purple); }
+    .dot.hotel{ background: var(--teal); }
+    .dot.emb{ background: #111827; }
+    .dot.veic{ background: var(--orange); }
+    .dot.carga{ background: var(--blue); }
+    .dot.ok{ background: var(--green); }
+    .dot.alert{ background: var(--red); }
+
+    .legend-small{
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 8px;
+      line-height: 1.25;
+    }
+
+    /* Ajuste para mobile */
+    @media (max-width: 720px){
+      #legend-container{ width: 200px; }
+      .topbar{ padding: 8px 8px 6px; }
+      #mapWrap{ height: calc(100vh - 116px); }
+    }
   </style>
 </head>
+
 <body>
-
   <div class="topbar">
-    <div class="row">
-      <div class="card">
-        <label>🗓️ Data <input id="inpData" type="text" placeholder="dd/MM/aaaa" /></label>
-
-        <label>🚚 Cargas
-          <select id="selCargas">
-            <option value="">TODAS</option>
-            <option value="OK">OK</option>
-            <option value="ALERTA">ALERTA</option>
-          </select>
-        </label>
-
-        <label>🚗 Veículos
-          <select id="selVeiculos">
-            <option value="">TODOS</option>
-            <option value="OK">OK</option>
-            <option value="ALERTA">ALERTA</option>
-          </select>
-        </label>
-
-        <div class="chkline" style="margin-left:6px;">
-          <div class="chk"><input id="chkHoteis" type="checkbox" checked><span>Hotéis</span></div>
-          <div class="chk"><input id="chkEmbarques" type="checkbox" checked><span>Embarques</span></div>
-          <div class="chk"><input id="chkCasas" type="checkbox"><span>Casas</span></div>
-          <div class="chk"><input id="chkVeiculos" type="checkbox" checked><span>Veículos</span></div>
-          <div class="chk"><input id="chkCargas" type="checkbox" checked><span>Cargas</span></div>
-        </div>
-
-        <button id="btnAtualizar">Atualizar</button>
-        <span id="pillStatus" class="pill">Pronto</span>
-        <span class="hint">Dica: se não filtrar data, mostra tudo do dia na base.</span>
+    <div class="controls">
+      <div class="group">
+        <div class="label">📅 Data</div>
+        <input id="dataRef" type="date" />
       </div>
 
-      <div class="card">
-        <div class="counts" id="counts">—</div>
+      <div class="group">
+        <div class="label">🚚 Cargas</div>
+        <select id="statusCargas">
+          <option value="">TODAS</option>
+          <option value="OK">OK</option>
+          <option value="ALERTA">ALERTA</option>
+        </select>
+      </div>
+
+      <div class="group">
+        <div class="label">🚗 Veículos</div>
+        <select id="statusVeiculos">
+          <option value="">TODOS</option>
+          <option value="OK">OK</option>
+          <option value="ALERTA">ALERTA</option>
+        </select>
+      </div>
+
+      <button class="btn" id="btnAtualizar">Atualizar</button>
+
+      <span class="pill" id="pillInfo">—</span>
+
+      <div class="toggles">
+        <label class="toggle"><input type="checkbox" id="tgHoteis" checked> Hotéis</label>
+        <label class="toggle"><input type="checkbox" id="tgEmbarques" checked> Embarques</label>
+        <label class="toggle"><input type="checkbox" id="tgCasas" checked> Casas</label>
+        <label class="toggle"><input type="checkbox" id="tgVeiculos" checked> Veículos</label>
+        <label class="toggle"><input type="checkbox" id="tgCargas" checked> Cargas</label>
       </div>
     </div>
   </div>
 
-  <div id="map"></div>
+  <div id="mapWrap">
+    <div id="map"></div>
 
-  <div class="legend">
-    <h4>Legenda</h4>
-    <div class="lg"><span class="dot casa"></span> Casa</div>
-    <div class="lg"><span class="dot hotel"></span> Hotel</div>
-    <div class="lg"><span class="dot emb"></span> Ponto de Embarque</div>
-    <div class="lg"><span class="dot parado"></span> Veículo parado (pin)</div>
-    <hr style="border:0;border-top:1px solid var(--border); margin:10px 0;">
-    <div class="lg"><span class="dot ok"></span> Status OK (carga/veículo)</div>
-    <div class="lg"><span class="dot alert"></span> Status ALERTA (carga/veículo)</div>
+    <div id="legend-container">
+      <div class="legend-title">
+        <span>Legenda</span>
+        <span class="pill" id="pillStatus">—</span>
+      </div>
+
+      <div class="legend-row"><span class="dot hotel"></span> Hotel</div>
+      <div class="legend-row"><span class="dot emb"></span> Embarque</div>
+      <div class="legend-row"><span class="dot casa"></span> Casa</div>
+      <div class="legend-row"><span class="dot veic"></span> Veículo parado</div>
+      <div class="legend-row"><span class="dot carga"></span> Carga (grupo)</div>
+      <hr style="border:none;border-top:1px solid var(--border);margin:10px 0;">
+      <div class="legend-row"><span class="dot ok"></span> Status OK</div>
+      <div class="legend-row"><span class="dot alert"></span> Status ALERTA</div>
+
+      <div class="legend-small">
+        Base: OSM / Satélite / Terreno (canto superior esquerdo do mapa).
+      </div>
+    </div>
   </div>
 
-  <div id="toast" class="toast"></div>
-
 <script>
-  // =========================
-  // API (Cloudflare Worker)
-  // =========================
-  // ✅ No GitHub Pages, "/api" NÃO existe.
-  // Então: se estiver em *.github.io -> usa o Worker.
-  const WORKER_BASE = "https://irregularidadesmapa.tecnologia-f0c.workers.dev";
-  const API_BASE = (location.hostname.includes("github.io"))
-    ? (WORKER_BASE + "/api")
-    : "/api"; // se algum dia você servir o HTML pelo próprio worker/domínio
+/** =========================
+ *  CONFIG
+ *  ========================= */
+const WORKER_BASE = "https://irregularidadesmapa.tecnologia-f0c.workers.dev"; // <-- seu worker
+const API = {
+  ping:            `${WORKER_BASE}/ping`,
+  hoteis:          `${WORKER_BASE}/api/hoteis`,
+  embarques:       `${WORKER_BASE}/api/pontos_embarque`,
+  casas:           `${WORKER_BASE}/api/casas`,
+  veiculosParados: `${WORKER_BASE}/api/veiculos_parados`,
+  cargasAgrupadas: `${WORKER_BASE}/api/cargas_agrupadas`
+};
 
-  async function apiGet(path) {
-    const r = await fetch(API_BASE + path, { method: "GET" });
-    const text = await r.text();
-    if (!r.ok) throw new Error(text || ("HTTP " + r.status));
-    try { return JSON.parse(text); } catch(_) { throw new Error("Resposta não-JSON: " + text.slice(0,200)); }
-  }
+// Brasil (aprox)
+const BR_CENTER = [-14.7, -52.0];
+const BR_ZOOM   = 4;
 
-  async function apiPost(path, payload) {
-    const r = await fetch(API_BASE + path, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload || {})
-    });
-    const text = await r.text();
-    if (!r.ok) throw new Error(text || ("HTTP " + r.status));
-    try { return JSON.parse(text); } catch(_) { throw new Error("Resposta não-JSON: " + text.slice(0,200)); }
-  }
+/** =========================
+ *  MAP INIT (Leaflet)
+ *  ========================= */
+const map = L.map("map", { zoomControl: true }).setView(BR_CENTER, BR_ZOOM);
 
-  // ====== UTIL ======
-  const $ = (id) => document.getElementById(id);
+// Bases
+const baseOSM = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: "&copy; OpenStreetMap"
+});
 
-  function escapeHtml(s){
-    s = String(s ?? "");
-    return s.replace(/[&<>"']/g, (m)=>({
-      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
-    }[m]));
-  }
+const baseSat = L.tileLayer(
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  { maxZoom: 19, attribution: "Tiles &copy; Esri" }
+);
 
-  function toast(msg, kind){
-    const t = $("toast");
-    t.textContent = msg || "";
-    t.classList.add("show");
-    if(kind === "ok") t.style.background = "rgba(22,163,74,.92)";
-    else if(kind === "alert") t.style.background = "rgba(220,38,38,.92)";
-    else t.style.background = "rgba(15,23,42,.92)";
-    setTimeout(()=>t.classList.remove("show"), 3500);
-  }
+const baseTerrain = L.tileLayer(
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+  { maxZoom: 19, attribution: "Tiles &copy; Esri" }
+);
 
-  function setPill(text, mode){
-    const p = $("pillStatus");
-    p.textContent = text || "";
-    p.classList.remove("ok","alert");
-    if(mode === "ok") p.classList.add("ok");
-    if(mode === "alert") p.classList.add("alert");
-  }
+baseOSM.addTo(map);
 
-  function safeNum(v){
-    const n = Number(v);
-    return Number.isFinite(n) ? n : NaN;
-  }
-  function km(v){
-    const n = Number(v);
-    if (!Number.isFinite(n)) return "";
-    return (n).toFixed(2);
-  }
-  function asListLaudos(v){
-    if (Array.isArray(v)) return v.filter(Boolean).join(", ");
-    return String(v||"").trim();
-  }
-  function countLaudos(v){
-    // ✅ aceita array, string "A, B, C" ou número vindo do backend
-    if (typeof v === "number" && Number.isFinite(v)) return v;
-    if (Array.isArray(v)) return v.filter(Boolean).length;
-    const s = String(v||"").trim();
-    if (!s) return 0;
-    return s.split(",").map(x=>x.trim()).filter(Boolean).length;
-  }
+// Overlays (camadas)
+const layerHoteis    = L.layerGroup();
+const layerEmbarques = L.layerGroup();
+const layerCasas     = L.layerGroup();
+const layerVeiculos  = L.layerGroup();
 
-  // ====== MAPA ======
-  const map = L.map('map', { zoomControl:true }).setView([-14.2350, -51.9253], 4); // Brasil
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap'
-  }).addTo(map);
+// Cargas com cluster
+const layerCargasCluster = L.markerClusterGroup({
+  showCoverageOnHover: false,
+  maxClusterRadius: 55
+});
 
-  const layerCargas    = L.layerGroup().addTo(map);
-  const layerVeiculos  = L.layerGroup().addTo(map);
-  const layerHoteis    = L.layerGroup().addTo(map);
-  const layerEmbarques = L.layerGroup().addTo(map);
-  const layerCasas     = L.layerGroup().addTo(map);
+// Controle de camadas (base + overlays)
+L.control.layers(
+  {
+    "Mapa (OSM)": baseOSM,
+    "Satélite (Esri)": baseSat,
+    "Terreno (Esri)": baseTerrain
+  },
+  {
+    "Hotéis": layerHoteis,
+    "Embarques": layerEmbarques,
+    "Casas": layerCasas,
+    "Veículos": layerVeiculos,
+    "Cargas": layerCargasCluster
+  },
+  { collapsed: true }
+).addTo(map);
 
-  const state = { hoteis:[], embarques:[], casas:[], veiculos:[], cargas:[] };
+// coloca overlays por padrão
+layerHoteis.addTo(map);
+layerEmbarques.addTo(map);
+layerCasas.addTo(map);
+layerVeiculos.addTo(map);
+layerCargasCluster.addTo(map);
 
-  // não resetar zoom depois que o usuário mexer
-  let autoFitEnabled = true;
-  map.on("dragstart zoomstart movestart", ()=>{ autoFitEnabled = false; });
+/** =========================
+ *  UI helpers
+ *  ========================= */
+const $ = (id) => document.getElementById(id);
 
-  function iconDot(color, label){
-    return L.divIcon({
-      className: '',
-      html: `<div style="
-        width:12px;height:12px;border-radius:999px;background:${color};
-        border:2px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,.25);
-      " title="${label||''}"></div>`,
-      iconSize:[12,12],
-      iconAnchor:[6,6]
-    });
-  }
+function setPill(el, text, cls){
+  el.className = "pill";
+  if (cls) el.classList.add(cls);
+  el.textContent = text;
+}
 
-  function iconPin(color){
-    const svg = `
-      <svg width="26" height="38" viewBox="0 0 26 38" xmlns="http://www.w3.org/2000/svg">
-        <path d="M13 37c0 0 11-13.6 11-23A11 11 0 0 0 2 14c0 9.4 11 23 11 23z" fill="${color}" stroke="#ffffff" stroke-width="2"/>
-        <circle cx="13" cy="14" r="4.5" fill="#ffffff"/>
-      </svg>`;
-    return L.divIcon({ className:'', html: svg, iconSize:[26,38], iconAnchor:[13,37] });
-  }
+function isoToDMY(iso){
+  // "2026-01-22" -> "22/01/2026"
+  if (!iso) return "";
+  const [y,m,d] = iso.split("-");
+  if (!y || !m || !d) return "";
+  return `${d}/${m}/${y}`;
+}
 
-  function addMarkersHoteis(items){
-    layerHoteis.clearLayers();
-    const ic = iconDot("#2563eb", "Hotel");
-    items.forEach(x=>{
-      const lat = safeNum(x.lat), lng = safeNum(x.lng);
-      if(!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-      L.marker([lat,lng], { icon: ic })
-        .bindPopup(`<b>Hotel</b><br>${escapeHtml(x.nome||'')}`)
-        .addTo(layerHoteis);
-    });
-  }
+/** =========================
+ *  Fetch helpers
+ *  ========================= */
+async function apiGet(url){
+  const r = await fetch(url, { method: "GET" });
+  const j = await r.json().catch(() => null);
+  if (!j || j.ok !== true) throw new Error(`GET falhou: ${url}`);
+  return j.data ?? j;
+}
 
-  function addMarkersEmbarques(items){
-    layerEmbarques.clearLayers();
-    const ic = iconDot("#7c3aed", "Embarque");
-    items.forEach(x=>{
-      const lat = safeNum(x.lat), lng = safeNum(x.lng);
-      if(!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-      const sub = [x.cidade ? escapeHtml(x.cidade) : "", x.uf ? escapeHtml(x.uf) : ""]
-        .filter(Boolean).join(" - ");
-      L.marker([lat,lng], { icon: ic })
-        .bindPopup(`<b>Ponto de Embarque</b><br>${escapeHtml(x.nome||'')}<br><span style="color:#6b7280">${sub}</span>`)
-        .addTo(layerEmbarques);
-    });
-  }
-
-  function addMarkersCasas(items){
-    layerCasas.clearLayers();
-    const ic = iconDot("#0ea5e9", "Casa");
-    items.forEach(x=>{
-      const lat = safeNum(x.lat), lng = safeNum(x.lng);
-      if(!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-      const nome = x.nome || x.cpf || "Casa";
-      L.marker([lat,lng], { icon: ic })
-        .bindPopup(`<b>Casa</b><br>${escapeHtml(nome)}`)
-        .addTo(layerCasas);
-    });
-  }
-
-  // VEÍCULOS
-  function addMarkersVeiculos(items){
-    layerVeiculos.clearLayers();
-    items.forEach(x=>{
-      const lat = safeNum(x.lat), lng = safeNum(x.lng);
-      if(!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-
-      const status = String(x.status||"").toUpperCase();
-      const color = (status==="ALERTA") ? "#dc2626" : "#16a34a";
-      const ic = iconPin(color);
-
-      const html = `
-        <div>
-          <div><b>Veículo parado (${escapeHtml(status)})</b></div>
-
-          <div class="kv"><b>Veículo:</b> ${escapeHtml(x.veiculo||"")}</div>
-          <div class="kv"><b>Motorista:</b> ${escapeHtml(x.motorista||"")}</div>
-          <div class="kv"><b>Parado:</b> ${escapeHtml(km(Number(x.parado_horas||0)))} h</div>
-
-          <div class="kv"><b>Ref:</b> ${escapeHtml(x.ref_tipo||"")} - ${escapeHtml(x.ref_nome||"")}</div>
-          <div class="kv"><b>Dist:</b> ${escapeHtml(km(Number(x.dist_km||0)))} km</div>
-
-          <div class="sec-title">Hora:</div>
-          <div class="kv">${escapeHtml(x.dt_prev||"")} → ${escapeHtml(x.dt_now||"")}</div>
-        </div>
-      `;
-
-      L.marker([lat,lng], { icon: ic })
-        .bindPopup(html)
-        .addTo(layerVeiculos);
-    });
-  }
-
-  // CARGAS
-  function addMarkersCargas(items){
-    layerCargas.clearLayers();
-    items.forEach(x=>{
-      const lat = safeNum(x.lat), lng = safeNum(x.lng);
-      if(!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-
-      const status = String(x.status||"").toUpperCase();
-      const color = (status==="ALERTA") ? "#dc2626" : "#16a34a";
-      const ic = iconDot(color, "Carga");
-
-      // ✅ em vez de mostrar texto, mostrar CONTAGEM
-      const laudosCount = (x.qtd_laudos != null) ? Number(x.qtd_laudos) : countLaudos(x.laudos);
-
-      const html = `
-        <div>
-          <div><b>Carga (${escapeHtml(status)})</b></div>
-
-          <div class="kv"><b>Classificador:</b> ${escapeHtml(x.classificador||"")}</div>
-          <div class="kv"><b>Tons:</b> ${escapeHtml(km(Number(x.tons||0)))}</div>
-          <div class="kv"><b>Laudos:</b> ${escapeHtml(String(laudosCount))}</div>
-          <div class="kv"><b>Embarque:</b> ${escapeHtml(x.embarque||"")}</div>
-
-          <div class="sec-title">Distâncias:</div>
-          <div class="kv">
-            <b>Embarque:</b> ${escapeHtml(km(Number(x.dist_embarque_km||0)))} km
-            &nbsp;–&nbsp; <b>Casa:</b> ${escapeHtml(km(Number(x.dist_casa_km||0)))} km
-            &nbsp;–&nbsp; <b>Hotel:</b> ${escapeHtml(km(Number(x.dist_hotel_km||0)))} km
-          </div>
-
-          <div class="sec-title">Hora:</div>
-          <div class="kv">${escapeHtml(x.hora||"")}</div>
-        </div>
-      `;
-
-      L.marker([lat,lng], { icon: ic })
-        .bindPopup(html)
-        .addTo(layerCargas);
-    });
-  }
-
-  function toggleLayer(layer, on){
-    const has = map.hasLayer(layer);
-    if(on && !has) map.addLayer(layer);
-    if(!on && has) map.removeLayer(layer);
-  }
-
-  function applyLayerVisibility(){
-    toggleLayer(layerHoteis,    $("chkHoteis").checked);
-    toggleLayer(layerEmbarques, $("chkEmbarques").checked);
-    toggleLayer(layerCasas,     $("chkCasas").checked);
-    toggleLayer(layerVeiculos,  $("chkVeiculos").checked);
-    toggleLayer(layerCargas,    $("chkCargas").checked);
-  }
-
-  function fitToVisible(){
-    const layers = [];
-    if($("chkHoteis").checked) layers.push(layerHoteis);
-    if($("chkEmbarques").checked) layers.push(layerEmbarques);
-    if($("chkCasas").checked) layers.push(layerCasas);
-    if($("chkVeiculos").checked) layers.push(layerVeiculos);
-    if($("chkCargas").checked) layers.push(layerCargas);
-
-    const bounds = L.latLngBounds();
-    let any = false;
-    layers.forEach(l=>{
-      l.eachLayer(m=>{
-        if(m.getLatLng){
-          bounds.extend(m.getLatLng());
-          any = true;
-        }
-      });
-    });
-    if(any) map.fitBounds(bounds.pad(0.15));
-  }
-
-  function buildFiltro(){
-    return {
-      data: $("inpData").value.trim(),
-      statusCargas: $("selCargas").value,
-      statusVeiculos: $("selVeiculos").value
-    };
-  }
-
-  function setCounts(){
-    const c = `Hotéis: ${state.hoteis.length} | Embarques: ${state.embarques.length} | Casas: ${state.casas.length} | Veículos: ${state.veiculos.length} | Cargas: ${state.cargas.length}`;
-    $("counts").textContent = c;
-  }
-
-  async function atualizar(){
-    setPill("Carregando…");
-    $("btnAtualizar").disabled = true;
-
-    const filtro = buildFiltro();
-
-    try{
-      const [h,e,c,v,ca] = await Promise.all([
-        apiGet("/hoteis"),
-        apiGet("/pontos_embarque"),
-        apiGet("/casas"),
-        apiPost("/veiculos_parados", filtro),
-        apiPost("/cargas_agrupadas", filtro),
-      ]);
-
-      // seu GAS retorna {ok:true, data:...}
-      const unwrap = (x) => (x && typeof x === "object" && "data" in x) ? x.data : x;
-
-      state.hoteis = Array.isArray(unwrap(h)) ? unwrap(h) : [];
-      state.embarques = Array.isArray(unwrap(e)) ? unwrap(e) : [];
-      state.casas = Array.isArray(unwrap(c)) ? unwrap(c) : [];
-      state.veiculos = Array.isArray(unwrap(v)) ? unwrap(v) : [];
-      state.cargas = Array.isArray(unwrap(ca)) ? unwrap(ca) : [];
-
-      addMarkersHoteis(state.hoteis);
-      addMarkersEmbarques(state.embarques);
-      addMarkersCasas(state.casas);
-      addMarkersVeiculos(state.veiculos);
-      addMarkersCargas(state.cargas);
-
-      applyLayerVisibility();
-      setCounts();
-
-      setPill("OK", "ok");
-      toast("Mapa atualizado.", "ok");
-      $("btnAtualizar").disabled = false;
-
-      if (autoFitEnabled) fitToVisible();
-    }catch(err){
-      console.error(err);
-      setPill("Erro", "alert");
-      toast("Erro ao carregar dados. Veja o console.", "alert");
-      $("btnAtualizar").disabled = false;
-    }
-  }
-
-  $("btnAtualizar").addEventListener("click", atualizar);
-
-  ["chkHoteis","chkEmbarques","chkCasas","chkVeiculos","chkCargas"].forEach(id=>{
-    $(id).addEventListener("change", ()=>{
-      applyLayerVisibility();
-    });
+async function apiPost(url, body){
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {})
   });
+  const j = await r.json().catch(() => null);
+  if (!j || j.ok !== true) throw new Error(`POST falhou: ${url}`);
+  return j.data ?? j;
+}
 
-  applyLayerVisibility();
-  atualizar();
+/** =========================
+ *  Markers styles
+ *  ========================= */
+function circle(lat, lng, options){
+  return L.circleMarker([lat, lng], {
+    radius: options.radius ?? 6,
+    weight: 2,
+    opacity: 1,
+    fillOpacity: 0.85,
+    color: options.color ?? "#111827",
+    fillColor: options.fillColor ?? options.color ?? "#111827"
+  });
+}
+
+function statusColor(status){
+  const s = String(status || "").toUpperCase();
+  if (s === "ALERTA") return "#ef4444";
+  if (s === "OK") return "#16a34a";
+  return "#2563eb";
+}
+
+/** =========================
+ *  Laudos: você pediu CONTAGEM
+ *  ========================= */
+function contarLaudos(laudosStr){
+  const raw = String(laudosStr || "").trim();
+  if (!raw) return 0;
+
+  // aceita "123, 456, 789" ou "123;456" ou "123 | 456"
+  const parts = raw
+    .split(/[,\;\|\n]+/g)
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  // remove duplicados
+  return new Set(parts).size;
+}
+
+/** =========================
+ *  Render functions
+ *  ========================= */
+function clearLayers(){
+  layerHoteis.clearLayers();
+  layerEmbarques.clearLayers();
+  layerCasas.clearLayers();
+  layerVeiculos.clearLayers();
+  layerCargasCluster.clearLayers();
+}
+
+function renderHoteis(list){
+  (list || []).forEach(h => {
+    const m = circle(h.lat, h.lng, { color: "#14b8a6", radius: 7 });
+    m.bindPopup(
+      `<b>Hotel</b><br>` +
+      `${escapeHtml(h.nome || "")}<br>` +
+      `<small>Lat/Lng: ${h.lat.toFixed(6)}, ${h.lng.toFixed(6)}</small>`
+    );
+    layerHoteis.addLayer(m);
+  });
+}
+
+function renderEmbarques(list){
+  (list || []).forEach(p => {
+    const m = circle(p.lat, p.lng, { color: "#111827", radius: 6 });
+    m.bindPopup(
+      `<b>Embarque</b><br>` +
+      `${escapeHtml(p.nome || "")}` +
+      (p.cidade || p.uf ? `<br><small>${escapeHtml((p.cidade||"") + (p.uf?(" - "+p.uf):""))}</small>` : "") +
+      `<br><small>Lat/Lng: ${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}</small>`
+    );
+    layerEmbarques.addLayer(m);
+  });
+}
+
+function renderCasas(list){
+  (list || []).forEach(c => {
+    const nm = c.nome || c.cpf || "Casa";
+    const m = circle(c.lat, c.lng, { color: "#8b5cf6", radius: 6 });
+    m.bindPopup(
+      `<b>Casa</b><br>` +
+      `${escapeHtml(nm)}<br>` +
+      `<small>Lat/Lng: ${c.lat.toFixed(6)}, ${c.lng.toFixed(6)}</small>`
+    );
+    layerCasas.addLayer(m);
+  });
+}
+
+function renderVeiculos(list){
+  (list || []).forEach(v => {
+    const col = statusColor(v.status);
+    const m = circle(v.lat, v.lng, { color: col, radius: 7 });
+    m.bindPopup(
+      `<b>Veículo parado</b><br>` +
+      `<b>Status:</b> <span style="color:${col};font-weight:700">${escapeHtml(v.status||"")}</span><br>` +
+      `<b>Veículo:</b> ${escapeHtml(v.veiculo||"")}<br>` +
+      `<b>Motorista:</b> ${escapeHtml(v.motorista||"")}<br>` +
+      `<b>Parado:</b> ${Number(v.parado_horas||0).toFixed(2)}h (${Number(v.parado_minutos||0)} min)<br>` +
+      `<b>Ref:</b> ${escapeHtml(v.ref_tipo||"")} – ${escapeHtml(v.ref_nome||"")} (${escapeHtml(String(v.dist_km||""))} km)<br>` +
+      `<b>Janela:</b> ${escapeHtml(v.dt_prev||"")} → ${escapeHtml(v.dt_now||"")}<br>` +
+      `<small>Lat/Lng: ${v.lat.toFixed(6)}, ${v.lng.toFixed(6)}</small>`
+    );
+    layerVeiculos.addLayer(m);
+  });
+}
+
+function renderCargas(list){
+  (list || []).forEach(c => {
+    const col = statusColor(c.status);
+    const qtdLaudos = contarLaudos(c.laudos);
+
+    const m = circle(c.lat, c.lng, { color: col, radius: 7 });
+    m.bindPopup(
+      `<b>Carga (Grupo)</b><br>` +
+      `<b>Status:</b> <span style="color:${col};font-weight:700">${escapeHtml(c.status||"")}</span><br>` +
+      `<b>Classificador:</b> ${escapeHtml(c.classificador||"")}<br>` +
+      `<b>Tons:</b> ${Number(c.tons||0).toFixed(2)}<br>` +
+      `<b>Laudos (qtd):</b> ${qtdLaudos}<br>` +   <!-- ✅ AQUI: CONTAGEM, não texto -->
+      `<b>Embarque:</b> ${escapeHtml(c.embarque||"")}<br>` +
+      `<b>Dist. Embarque:</b> ${Number(c.dist_embarque_km||0).toFixed(2)} km<br>` +
+      `<b>Dist. Casa:</b> ${Number(c.dist_casa_km||0).toFixed(2)} km<br>` +
+      `<b>Dist. Hotel:</b> ${Number(c.dist_hotel_km||0).toFixed(2)} km<br>` +
+      `<b>Hora:</b> ${escapeHtml(c.hora||"")}<br>` +
+      `<small>Lat/Lng: ${c.lat.toFixed(6)}, ${c.lng.toFixed(6)}</small>`
+    );
+
+    layerCargasCluster.addLayer(m);
+  });
+}
+
+function fitAllVisible(){
+  const groups = [];
+  if (map.hasLayer(layerHoteis) && layerHoteis.getLayers().length) groups.push(layerHoteis);
+  if (map.hasLayer(layerEmbarques) && layerEmbarques.getLayers().length) groups.push(layerEmbarques);
+  if (map.hasLayer(layerCasas) && layerCasas.getLayers().length) groups.push(layerCasas);
+  if (map.hasLayer(layerVeiculos) && layerVeiculos.getLayers().length) groups.push(layerVeiculos);
+  if (map.hasLayer(layerCargasCluster) && layerCargasCluster.getLayers().length) groups.push(layerCargasCluster);
+
+  if (!groups.length) return;
+
+  const fg = L.featureGroup(groups);
+  try{
+    map.fitBounds(fg.getBounds().pad(0.15));
+  }catch(_){}
+}
+
+/** =========================
+ *  Escape HTML
+ *  ========================= */
+function escapeHtml(s){
+  return String(s ?? "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+/** =========================
+ *  Sync toggles (camadas)
+ *  ========================= */
+function syncToggles(){
+  const tg = {
+    h: $("tgHoteis").checked,
+    e: $("tgEmbarques").checked,
+    c: $("tgCasas").checked,
+    v: $("tgVeiculos").checked,
+    g: $("tgCargas").checked
+  };
+
+  toggleLayer(layerHoteis, tg.h);
+  toggleLayer(layerEmbarques, tg.e);
+  toggleLayer(layerCasas, tg.c);
+  toggleLayer(layerVeiculos, tg.v);
+  toggleLayer(layerCargasCluster, tg.g);
+}
+
+function toggleLayer(layer, on){
+  if (on){
+    if (!map.hasLayer(layer)) map.addLayer(layer);
+  }else{
+    if (map.hasLayer(layer)) map.removeLayer(layer);
+  }
+}
+
+/** =========================
+ *  LOAD ALL
+ *  ========================= */
+async function carregarTudo(){
+  const btn = $("btnAtualizar");
+  btn.disabled = true;
+  btn.textContent = "Carregando...";
+
+  setPill($("pillStatus"), "Atualizando...", "warnpill");
+  setPill($("pillInfo"), "—");
+
+  try{
+    syncToggles();
+
+    const dataISO = $("dataRef").value;
+    const dataDMY = isoToDMY(dataISO);
+
+    const filtro = {
+      data: dataDMY, // backend espera dd/MM/yyyy
+      statusCargas: $("statusCargas").value,
+      statusVeiculos: $("statusVeiculos").value
+    };
+
+    // limpa primeiro
+    clearLayers();
+
+    // busca paralelo
+    const [
+      hoteis,
+      embarques,
+      casas,
+      veiculos,
+      cargas
+    ] = await Promise.all([
+      apiGet(API.hoteis),
+      apiGet(API.embarques),
+      apiGet(API.casas),
+      apiPost(API.veiculosParados, { data: filtro.data, statusVeiculos: filtro.statusVeiculos }),
+      apiPost(API.cargasAgrupadas, { data: filtro.data, statusCargas: filtro.statusCargas })
+    ]);
+
+    // render
+    renderHoteis(hoteis);
+    renderEmbarques(embarques);
+    renderCasas(casas);
+    renderVeiculos(veiculos);
+    renderCargas(cargas);
+
+    // aplica toggles novamente (caso usuário desmarcou)
+    syncToggles();
+
+    // info
+    const nH = (hoteis||[]).length;
+    const nE = (embarques||[]).length;
+    const nC = (casas||[]).length;
+    const nV = (veiculos||[]).length;
+    const nG = (cargas||[]).length;
+
+    setPill($("pillInfo"), `Hotéis: ${nH} | Embarques: ${nE} | Casas: ${nC} | Veículos: ${nV} | Cargas: ${nG}`);
+    setPill($("pillStatus"), "OK", "okpill");
+
+    // se tiver algo, ajusta zoom
+    fitAllVisible();
+
+    // Se cargas vier vazio, mostra aviso direto (pra não “sumir” sem explicar)
+    if (!nG){
+      setPill($("pillStatus"), "Cargas: 0", "warnpill");
+    }
+
+  }catch(err){
+    console.error(err);
+    setPill($("pillStatus"), "Erro", "badpill");
+    setPill($("pillInfo"), String(err && err.message ? err.message : err), "badpill");
+  }finally{
+    btn.disabled = false;
+    btn.textContent = "Atualizar";
+  }
+}
+
+/** =========================
+ *  Events
+ *  ========================= */
+$("btnAtualizar").addEventListener("click", carregarTudo);
+
+["tgHoteis","tgEmbarques","tgCasas","tgVeiculos","tgCargas"].forEach(id=>{
+  $(id).addEventListener("change", () => {
+    syncToggles();
+    // não precisa recarregar, só alterna visibilidade
+  });
+});
+
+["statusCargas","statusVeiculos","dataRef"].forEach(id=>{
+  $(id).addEventListener("change", () => {
+    // troca filtro e recarrega
+    carregarTudo();
+  });
+});
+
+/** =========================
+ *  init default date
+ *  ========================= */
+(function init(){
+  // seta hoje (local) no input date
+  const now = new Date();
+  const pad = (n)=> String(n).padStart(2,"0");
+  const iso = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  $("dataRef").value = iso;
+
+  // primeira carga
+  carregarTudo();
+})();
 </script>
 </body>
 </html>
