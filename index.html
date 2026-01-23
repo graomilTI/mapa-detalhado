@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- MarkerCluster (opcional, mas ajuda MUITO em cargas) -->
+  <!-- MarkerCluster -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
@@ -31,7 +31,6 @@
       --teal:#14b8a6;
       --purple:#8b5cf6;
     }
-
     *{ box-sizing:border-box; }
     body{
       margin:0;
@@ -40,8 +39,6 @@
       color:var(--text);
       overflow:hidden;
     }
-
-    /* Topbar */
     .topbar{
       position: sticky;
       top: 0;
@@ -123,7 +120,6 @@
       user-select:none;
     }
 
-    /* Map area */
     #mapWrap{
       position: relative;
       height: calc(100vh - 78px);
@@ -134,7 +130,6 @@
       width:100%;
     }
 
-    /* Legenda flutuante */
     #legend-container{
       position:absolute;
       top: 10px;
@@ -186,7 +181,6 @@
       line-height: 1.25;
     }
 
-    /* Ajuste para mobile */
     @media (max-width: 720px){
       #legend-container{ width: 200px; }
       .topbar{ padding: 8px 8px 6px; }
@@ -260,10 +254,7 @@
   </div>
 
 <script>
-/** =========================
- *  CONFIG
- *  ========================= */
-const WORKER_BASE = "https://irregularidadesmapa.tecnologia-f0c.workers.dev"; // <-- seu worker
+const WORKER_BASE = "https://irregularidadesmapa.tecnologia-f0c.workers.dev";
 const API = {
   ping:            `${WORKER_BASE}/ping`,
   hoteis:          `${WORKER_BASE}/api/hoteis`,
@@ -273,26 +264,19 @@ const API = {
   cargasAgrupadas: `${WORKER_BASE}/api/cargas_agrupadas`
 };
 
-// Brasil (aprox)
 const BR_CENTER = [-14.7, -52.0];
 const BR_ZOOM   = 4;
 
-/** =========================
- *  MAP INIT (Leaflet)
- *  ========================= */
 const map = L.map("map", { zoomControl: true }).setView(BR_CENTER, BR_ZOOM);
 
-// Bases
 const baseOSM = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
   attribution: "&copy; OpenStreetMap"
 });
-
 const baseSat = L.tileLayer(
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
   { maxZoom: 19, attribution: "Tiles &copy; Esri" }
 );
-
 const baseTerrain = L.tileLayer(
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
   { maxZoom: 19, attribution: "Tiles &copy; Esri" }
@@ -300,19 +284,16 @@ const baseTerrain = L.tileLayer(
 
 baseOSM.addTo(map);
 
-// Overlays (camadas)
 const layerHoteis    = L.layerGroup();
 const layerEmbarques = L.layerGroup();
 const layerCasas     = L.layerGroup();
 const layerVeiculos  = L.layerGroup();
 
-// Cargas com cluster
 const layerCargasCluster = L.markerClusterGroup({
   showCoverageOnHover: false,
   maxClusterRadius: 55
 });
 
-// Controle de camadas (base + overlays)
 L.control.layers(
   {
     "Mapa (OSM)": baseOSM,
@@ -329,16 +310,12 @@ L.control.layers(
   { collapsed: true }
 ).addTo(map);
 
-// coloca overlays por padrão
 layerHoteis.addTo(map);
 layerEmbarques.addTo(map);
 layerCasas.addTo(map);
 layerVeiculos.addTo(map);
 layerCargasCluster.addTo(map);
 
-/** =========================
- *  UI helpers
- *  ========================= */
 const $ = (id) => document.getElementById(id);
 
 function setPill(el, text, cls){
@@ -348,16 +325,12 @@ function setPill(el, text, cls){
 }
 
 function isoToDMY(iso){
-  // "2026-01-22" -> "22/01/2026"
   if (!iso) return "";
   const [y,m,d] = iso.split("-");
   if (!y || !m || !d) return "";
   return `${d}/${m}/${y}`;
 }
 
-/** =========================
- *  Fetch helpers
- *  ========================= */
 async function apiGet(url){
   const r = await fetch(url, { method: "GET" });
   const j = await r.json().catch(() => null);
@@ -376,9 +349,6 @@ async function apiPost(url, body){
   return j.data ?? j;
 }
 
-/** =========================
- *  Markers styles
- *  ========================= */
 function circle(lat, lng, options){
   return L.circleMarker([lat, lng], {
     radius: options.radius ?? 6,
@@ -397,32 +367,32 @@ function statusColor(status){
   return "#2563eb";
 }
 
-/** =========================
- *  Laudos: você pediu CONTAGEM
- *  ========================= */
+/** fallback se um dia voltar `laudos` como string */
 function contarLaudos(laudosStr){
   const raw = String(laudosStr || "").trim();
   if (!raw) return 0;
-
-  // aceita "123, 456, 789" ou "123;456" ou "123 | 456"
   const parts = raw
     .split(/[,\;\|\n]+/g)
     .map(s => s.trim())
     .filter(Boolean);
-
-  // remove duplicados
   return new Set(parts).size;
 }
 
-/** =========================
- *  Render functions
- *  ========================= */
 function clearLayers(){
   layerHoteis.clearLayers();
   layerEmbarques.clearLayers();
   layerCasas.clearLayers();
   layerVeiculos.clearLayers();
   layerCargasCluster.clearLayers();
+}
+
+function escapeHtml(s){
+  return String(s ?? "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
 }
 
 function renderHoteis(list){
@@ -484,7 +454,11 @@ function renderVeiculos(list){
 function renderCargas(list){
   (list || []).forEach(c => {
     const col = statusColor(c.status);
-    const qtdLaudos = contarLaudos(c.laudos);
+
+    // ✅ GAS retorna laudos_qtd (número). Mantém fallback antigo (string) se existir.
+    const qtdLaudos = Number.isFinite(Number(c.laudos_qtd))
+      ? Number(c.laudos_qtd)
+      : contarLaudos(c.laudos);
 
     const m = circle(c.lat, c.lng, { color: col, radius: 7 });
     m.bindPopup(
@@ -492,7 +466,7 @@ function renderCargas(list){
       `<b>Status:</b> <span style="color:${col};font-weight:700">${escapeHtml(c.status||"")}</span><br>` +
       `<b>Classificador:</b> ${escapeHtml(c.classificador||"")}<br>` +
       `<b>Tons:</b> ${Number(c.tons||0).toFixed(2)}<br>` +
-      `<b>Laudos (qtd):</b> ${qtdLaudos}<br>` +   <!-- ✅ AQUI: CONTAGEM, não texto -->
+      `<b>Laudos (qtd):</b> ${qtdLaudos}<br>` +
       `<b>Embarque:</b> ${escapeHtml(c.embarque||"")}<br>` +
       `<b>Dist. Embarque:</b> ${Number(c.dist_embarque_km||0).toFixed(2)} km<br>` +
       `<b>Dist. Casa:</b> ${Number(c.dist_casa_km||0).toFixed(2)} km<br>` +
@@ -503,6 +477,22 @@ function renderCargas(list){
 
     layerCargasCluster.addLayer(m);
   });
+}
+
+function toggleLayer(layer, on){
+  if (on){
+    if (!map.hasLayer(layer)) map.addLayer(layer);
+  }else{
+    if (map.hasLayer(layer)) map.removeLayer(layer);
+  }
+}
+
+function syncToggles(){
+  toggleLayer(layerHoteis, $("tgHoteis").checked);
+  toggleLayer(layerEmbarques, $("tgEmbarques").checked);
+  toggleLayer(layerCasas, $("tgCasas").checked);
+  toggleLayer(layerVeiculos, $("tgVeiculos").checked);
+  toggleLayer(layerCargasCluster, $("tgCargas").checked);
 }
 
 function fitAllVisible(){
@@ -516,53 +506,9 @@ function fitAllVisible(){
   if (!groups.length) return;
 
   const fg = L.featureGroup(groups);
-  try{
-    map.fitBounds(fg.getBounds().pad(0.15));
-  }catch(_){}
+  try{ map.fitBounds(fg.getBounds().pad(0.15)); }catch(_){}
 }
 
-/** =========================
- *  Escape HTML
- *  ========================= */
-function escapeHtml(s){
-  return String(s ?? "")
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
-
-/** =========================
- *  Sync toggles (camadas)
- *  ========================= */
-function syncToggles(){
-  const tg = {
-    h: $("tgHoteis").checked,
-    e: $("tgEmbarques").checked,
-    c: $("tgCasas").checked,
-    v: $("tgVeiculos").checked,
-    g: $("tgCargas").checked
-  };
-
-  toggleLayer(layerHoteis, tg.h);
-  toggleLayer(layerEmbarques, tg.e);
-  toggleLayer(layerCasas, tg.c);
-  toggleLayer(layerVeiculos, tg.v);
-  toggleLayer(layerCargasCluster, tg.g);
-}
-
-function toggleLayer(layer, on){
-  if (on){
-    if (!map.hasLayer(layer)) map.addLayer(layer);
-  }else{
-    if (map.hasLayer(layer)) map.removeLayer(layer);
-  }
-}
-
-/** =========================
- *  LOAD ALL
- *  ========================= */
 async function carregarTudo(){
   const btn = $("btnAtualizar");
   btn.disabled = true;
@@ -578,22 +524,14 @@ async function carregarTudo(){
     const dataDMY = isoToDMY(dataISO);
 
     const filtro = {
-      data: dataDMY, // backend espera dd/MM/yyyy
+      data: dataDMY,
       statusCargas: $("statusCargas").value,
       statusVeiculos: $("statusVeiculos").value
     };
 
-    // limpa primeiro
     clearLayers();
 
-    // busca paralelo
-    const [
-      hoteis,
-      embarques,
-      casas,
-      veiculos,
-      cargas
-    ] = await Promise.all([
+    const [hoteis, embarques, casas, veiculos, cargas] = await Promise.all([
       apiGet(API.hoteis),
       apiGet(API.embarques),
       apiGet(API.casas),
@@ -601,17 +539,14 @@ async function carregarTudo(){
       apiPost(API.cargasAgrupadas, { data: filtro.data, statusCargas: filtro.statusCargas })
     ]);
 
-    // render
     renderHoteis(hoteis);
     renderEmbarques(embarques);
     renderCasas(casas);
     renderVeiculos(veiculos);
     renderCargas(cargas);
 
-    // aplica toggles novamente (caso usuário desmarcou)
     syncToggles();
 
-    // info
     const nH = (hoteis||[]).length;
     const nE = (embarques||[]).length;
     const nC = (casas||[]).length;
@@ -621,13 +556,10 @@ async function carregarTudo(){
     setPill($("pillInfo"), `Hotéis: ${nH} | Embarques: ${nE} | Casas: ${nC} | Veículos: ${nV} | Cargas: ${nG}`);
     setPill($("pillStatus"), "OK", "okpill");
 
-    // se tiver algo, ajusta zoom
     fitAllVisible();
 
-    // Se cargas vier vazio, mostra aviso direto (pra não “sumir” sem explicar)
-    if (!nG){
-      setPill($("pillStatus"), "Cargas: 0", "warnpill");
-    }
+    if (!nV) setPill($("pillStatus"), "Veículos: 0", "warnpill");
+    if (!nG) setPill($("pillStatus"), "Cargas: 0", "warnpill");
 
   }catch(err){
     console.error(err);
@@ -639,36 +571,21 @@ async function carregarTudo(){
   }
 }
 
-/** =========================
- *  Events
- *  ========================= */
 $("btnAtualizar").addEventListener("click", carregarTudo);
 
 ["tgHoteis","tgEmbarques","tgCasas","tgVeiculos","tgCargas"].forEach(id=>{
-  $(id).addEventListener("change", () => {
-    syncToggles();
-    // não precisa recarregar, só alterna visibilidade
-  });
+  $(id).addEventListener("change", () => syncToggles());
 });
 
 ["statusCargas","statusVeiculos","dataRef"].forEach(id=>{
-  $(id).addEventListener("change", () => {
-    // troca filtro e recarrega
-    carregarTudo();
-  });
+  $(id).addEventListener("change", () => carregarTudo());
 });
 
-/** =========================
- *  init default date
- *  ========================= */
 (function init(){
-  // seta hoje (local) no input date
   const now = new Date();
   const pad = (n)=> String(n).padStart(2,"0");
   const iso = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
   $("dataRef").value = iso;
-
-  // primeira carga
   carregarTudo();
 })();
 </script>
